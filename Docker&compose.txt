@@ -1,0 +1,87 @@
+FROM ubuntu AS build 
+
+WORKDIR /app
+COPY . .
+RUN apt-get update && apt install openjdk-17-jdk maven -y
+RUN mvn clean package
+FROM openjdk:17-jdk-slim
+COPY --from=build /app/target/*.jar spring.jar
+
+
+CMD ["java", "-jar", "spring.jar"]
+
+EXPOSE 9090
+
+=============================================================================
+FROM nginx
+COPY . /usr/share/nginx/html
+==========================================================================
+
+
+FROM ubuntu AS build
+
+WORKDIR /app
+
+RUN apt-get update && apt-get install maven -y
+
+COPY . .
+RUN mvn clean package 
+
+FROM openjdk:17-jdk-slim
+
+WORKDIR /app
+
+COPY --from=build /app/target/*.jar app.jar
+CMD ["java", "-jar", "app.jar"]
+=============================================================================
+
+FROM maven AS build
+
+WORKDIR /app
+
+COPY . .
+
+RUN mvn clean install
+
+FROM openjdk:17-jdk-slim
+
+WORKDIR /dir
+
+COPY --from=build /app/target/*.jar ./employee.jar
+
+CMD ["java", "-jar", "employee.jar"]
+
+
+=====================frontend=====-------------------
+FROM node:18 AS nodejs
+
+WORKDIR /app
+
+#download all dependencies
+COPY package.json package-lock.json ./
+
+RUN npm install
+
+COPY . .
+
+RUN npm run build
+
+FROM nginx
+
+COPY --from=nodejs /app/build  /usr/share/nginx/html
+
+EXPOSE 80
+
+CMD ["nginx", "-g", "daemon off;"]
+=========================compose======---------------------------
+
+services:
+  backend:
+    build: ./backend
+    ports:
+      - "9090:8080"
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:80"
+=======================================================================
